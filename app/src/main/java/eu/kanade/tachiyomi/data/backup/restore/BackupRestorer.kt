@@ -100,9 +100,14 @@ class BackupRestorer(
         }
 
         coroutineScope {
-            if (options.categories) {
+            // Categories MUST be restored before preferences because preference restoration
+            // maps backup category IDs → current DB category IDs by name.  Running both
+            // concurrently causes restoreAppPreferences to see an empty categories table.
+            val categoriesJob = if (options.categories) {
                 restoreCategories(summary.backupCategories)
-            }
+            } else null
+            categoriesJob?.join()
+
             if (options.appSettings) {
                 restoreAppPreferences(summary.backupPreferences, summary.backupCategories.takeIf { options.categories })
             }
@@ -110,7 +115,7 @@ class BackupRestorer(
                 restoreSourcePreferences(summary.backupSourcePreferences)
             }
             if (options.libraryEntries) {
-                restoreMangaStream(uri, if (options.categories) summary.backupCategories else emptyList())
+                restoreMangaStream(uri, if (options.categories) summary.backupCategories else emptyList(), options)
             }
             if (options.extensionRepoSettings) {
                 restoreExtensionRepos(summary.backupExtensionRepo)
@@ -155,6 +160,7 @@ class BackupRestorer(
     private fun CoroutineScope.restoreMangaStream(
         uri: Uri,
         backupCategories: List<BackupCategory>,
+        options: RestoreOptions,
     ) = launch {
         val reader = BackupProtoReader(context)
         reader.read(uri) { fieldNumber, data ->
@@ -162,11 +168,13 @@ class BackupRestorer(
             ensureActive()
 
             val backupManga = parser.decodeFromByteArray(BackupManga.serializer(), data)
-            try {
-                mangaRestorer.restore(backupManga, backupCategories)
-            } catch (e: Exception) {
-                val sourceName = sourceMapping[backupManga.source] ?: backupManga.source.toString()
-                errors.add(Date() to "${backupManga.title} [$sourceName]: ${e.message}")
+            if ((!backupManga.isNovel && options.includeManga) || (backupManga.isNovel && options.includeNovels)) {
+                try {
+                    mangaRestorer.restore(backupManga, backupCategories)
+                } catch (e: Exception) {
+                    val sourceName = sourceMapping[backupManga.source] ?: backupManga.source.toString()
+                    errors.add(Date() to "${backupManga.title} [$sourceName]: ${e.message}")
+                }
             }
 
             restoreProgress += 1

@@ -509,8 +509,7 @@ class Downloader(
                         url = page.url,
                         imageUrl = page.imageUrl,
                         uri = page.uri,
-                        text = page.text,
-                    )
+                    ).also { it.text = page.text }
                 }
                 download.pages = reIndexedPages
                 reIndexedPages
@@ -534,7 +533,7 @@ class Downloader(
                         page.status = Page.State.LoadPage
                         try {
                             val httpSource = download.source as? HttpSource
-                            if (httpSource != null) {
+                            if (httpSource != null && page.url.isNotBlank()) {
                                 page.imageUrl = httpSource.getImageUrl(page)
                             }
                         } catch (e: Throwable) {

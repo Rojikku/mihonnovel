@@ -67,13 +67,20 @@ internal class HttpPageLoader(
      * otherwise fallbacks to network.
      */
     override suspend fun getPages(): List<ReaderPage> {
-        val pages = try {
-            chapterCache.getPageListFromCache(chapter.chapter.toDomainChapter()!!)
-        } catch (e: Throwable) {
-            if (e is CancellationException) {
-                throw e
-            }
+        val pages = if (source.isNovelSource()) {
+            // Novel page text is @Transient — not serializable — so the page-list
+            // cache always returns pages with text=null. Always fetch fresh so that
+            // internalLoadPage sees the text and can mark pages Ready immediately.
             source.getPageList(chapter.chapter)
+        } else {
+            try {
+                chapterCache.getPageListFromCache(chapter.chapter.toDomainChapter()!!)
+            } catch (e: Throwable) {
+                if (e is CancellationException) {
+                    throw e
+                }
+                source.getPageList(chapter.chapter)
+            }
         }
         return pages.mapIndexed { index, page ->
             // Don't trust sources and use our own indexing
@@ -205,27 +212,13 @@ internal class HttpPageLoader(
                 return
             }
 
-            // For manga sources (or novel sources with image pages), handle images
+            // Manga path (matches mihon baseline).
+            // isNullOrEmpty() catches both null (never set) and "" (empty string).
             if (page.imageUrl.isNullOrEmpty()) {
                 page.status = Page.State.LoadPage
-                // Need to fetch imageUrl from page.url
-                // Some sources set imageUrl directly in pageListParse, others need getImageUrl
-                if (page.url.isNotBlank()) {
-                    page.imageUrl = source.getImageUrl(page)
-                } else {
-                    // Page has no URL and no imageUrl - cannot load this page
-                    throw IllegalStateException(
-                        "Page ${page.index} has no URL and no imageUrl. " +
-                            "Check that the source's pageListParse returns valid pages.",
-                    )
-                }
+                page.imageUrl = source.getImageUrl(page)
             }
             val imageUrl = page.imageUrl!!
-
-            // Validate the image URL
-            if (imageUrl.isBlank()) {
-                throw IllegalStateException("Page ${page.index} has an empty image URL")
-            }
 
             if (!chapterCache.isImageInCache(imageUrl)) {
                 page.status = Page.State.DownloadImage

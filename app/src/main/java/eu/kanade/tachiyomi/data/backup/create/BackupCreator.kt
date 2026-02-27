@@ -95,14 +95,19 @@ class BackupCreator(
 
             val nonFavoriteManga = if (options.readEntries) mangaRepository.getReadMangaNotInLibrary() else emptyList()
 
-            val favorites = mangaRepository.getFavoritesEntry()
+            val favorites = if (options.libraryEntries) mangaRepository.getFavoritesEntry() else emptyList()
             val allManga = favorites + nonFavoriteManga
 
             logcat(LogPriority.INFO) { "Backup: Processing ${allManga.size} manga entries" }
 
             // Filter by manga/novel content type based on options
             val filteredManga = allManga.filter { manga ->
-                val isNovel = sourceManager.getOrStub(manga.source).isNovelSource()
+                // Use manga.isNovel field first (reliable for stub/uninstalled sources too),
+                // then fall back to live source check for sources that haven't been migrated.
+                val isNovel = manga.isNovel || sourceManager.getOrStub(manga.source).isNovelSource()
+                if (!options.libraryEntries && manga.favorite) return@filter false
+                if (!options.readEntries && !manga.favorite) return@filter false
+
                 when {
                     options.includeManga && options.includeNovels -> true
                     options.includeManga && !isNovel -> true
