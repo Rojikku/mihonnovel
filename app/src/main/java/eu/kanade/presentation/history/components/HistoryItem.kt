@@ -69,15 +69,21 @@ fun HistoryItem(
                 style = textStyle,
             )
             val readAt = remember { history.readAt?.toTimestampString() ?: "" }
+            val progress = history.lastPageRead
+            val progressSuffix = when {
+                history.chapterRead -> " - 100%"
+                progress > 0 -> if (history.isNovel) " - $progress%" else " - ${stringResource(MR.strings.chapter_progress, progress + 1)}"
+                else -> ""
+            }
             Text(
                 text = if (history.chapterNumber > -1) {
                     stringResource(
                         MR.strings.recent_manga_time,
                         formatChapterNumber(history.chapterNumber),
                         readAt,
-                    )
+                    ) + progressSuffix
                 } else {
-                    readAt
+                    readAt + progressSuffix
                 },
                 modifier = Modifier.padding(top = 4.dp),
                 style = textStyle,

@@ -162,13 +162,13 @@ class LibraryPreferences(
 
     // region History
 
-    fun historyGroupByNovel() = preferenceStore.getBoolean("history_group_by_novel", false)
+    fun historyGroupByNovel() = preferenceStore.getBoolean("history_group_by_novel", true)
 
     // endregion
 
     // region Updates
 
-    fun updatesGroupByNovel() = preferenceStore.getBoolean("updates_group_by_novel", false)
+    fun updatesGroupByNovel() = preferenceStore.getBoolean("updates_group_by_novel", true)
 
     // endregion
 
@@ -260,6 +260,9 @@ class LibraryPreferences(
     fun updateMangaTitles() = preferenceStore.getBoolean("pref_update_library_manga_titles", false)
 
     fun disallowNonAsciiFilenames() = preferenceStore.getBoolean("disallow_non_ascii_filenames", false)
+
+    fun mangaReadProgress100() = preferenceStore.getBoolean("pref_manga_read_progress_100", true)
+    fun novelReadProgress100() = preferenceStore.getBoolean("pref_novel_read_progress_100", true)
 
     // endregion
 
